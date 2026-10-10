@@ -1,0 +1,13 @@
+# Render deploy settings (used when you create a "Blueprint" from this repo)
+services:
+  - type: web
+    name: tic-tac-toe
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # One worker on purpose: games are stored in memory, so every request
+    # must hit the same Python process. Threads still let several people play at once.
+    startCommand: gunicorn app:app --workers 1 --threads 8 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7

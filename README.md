@@ -14,6 +14,7 @@ All the game rules run in Python on the server. The web page just draws the boar
 | `app.py` | Flask backend: API for starting a game and making moves |
 | `templates/index.html` | The web page UI (vibe coded) |
 | `tic_tac_toe_cli.py` | Terminal version (type x, y coordinates) |
+| `render.yaml`, `requirements.txt` | Deploy settings for Render |
 
 ## Run it
 
@@ -27,6 +28,16 @@ python app.py
 Then open **http://127.0.0.1:5000** in your browser.
 
 Terminal version: `python tic_tac_toe_cli.py`
+
+## Deploy (Render, free)
+
+This repo includes `render.yaml`, so Render can set itself up:
+
+1. Sign in at [render.com](https://render.com) with GitHub
+2. **New** → **Blueprint** → pick this repo → **Apply**
+3. Your game will be live at `https://tic-tac-toe-xxxx.onrender.com`
+
+The server runs `gunicorn` with a single worker, because games live in memory and every request must reach the same process. On the free plan the site sleeps after 15 minutes without visitors, so the first visit after that takes about a minute to wake up, and any unfinished games are reset.
 
 ## How to play
 

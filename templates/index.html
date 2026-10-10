@@ -209,8 +209,14 @@
       try {
         render(await api("/api/move", { game_id: gameId, x, y }), x * 3 + y);
       } catch (e) {
-        errorEl.textContent = e.message;
-        if (e.message.startsWith("Game not found")) gameId = null;
+        if (e.message.startsWith("Game not found")) {
+          // The server restarted (free hosting sleeps when idle), so start fresh
+          gameId = null;
+          await newGame();
+          errorEl.textContent = "The server restarted, so a new game was started.";
+        } else {
+          errorEl.textContent = e.message;
+        }
       }
     }
 
