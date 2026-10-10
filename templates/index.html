@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tic Tac Toe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --card: #fffaf2;
+      --ink: #1f1b16;
+      --muted: #7a7064;
+      --line: #1f1b16;
+      --x: #e4572e;
+      --o: #2667ff;
+      --win: #ffd23f;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16140f;
+        --card: #211e17;
+        --ink: #f4efe6;
+        --muted: #a39887;
+        --line: #f4efe6;
+        --x: #ff7a52;
+        --o: #6b98ff;
+        --win: #7a6417;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      padding: 24px 16px;
+    }
+    main { width: 100%; max-width: 380px; text-align: center; }
+    h1 { font-size: 2.4rem; margin: 0 0 4px; letter-spacing: -0.03em; }
+    .how { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+
+    .status {
+      font-size: 1.2rem;
+      font-weight: 600;
+      min-height: 1.6em;
+      margin-bottom: 14px;
+    }
+    .status .X { color: var(--x); }
+    .status .O { color: var(--o); }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      background: var(--line);
+      border: 3px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      aspect-ratio: 1;
+    }
+    .cell {
+      border: none;
+      background: var(--card);
+      font: 700 clamp(2.5rem, 14vw, 4rem) "Space Grotesk", sans-serif;
+      cursor: pointer;
+      transition: background 0.15s;
+      color: var(--ink);
+    }
+    .cell:hover:not(:disabled) { background: color-mix(in srgb, var(--card) 85%, var(--ink)); }
+    .cell:disabled { cursor: default; }
+    .cell.X { color: var(--x); }
+    .cell.O { color: var(--o); }
+    .cell.win { background: var(--win); }
+    .cell.pop { animation: pop 0.18s ease-out; }
+    @keyframes pop { from { transform: scale(0.6); } to { transform: scale(1); } }
+
+    .error {
+      color: var(--x);
+      min-height: 1.4em;
+      margin: 10px 0 4px;
+      font-size: 0.9rem;
+    }
+
+    .scores {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 8px 0 18px;
+    }
+    .score {
+      flex: 1;
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 4px;
+    }
+    .score b { display: block; font-size: 1.4rem; }
+    .score span { font-size: 0.8rem; color: var(--muted); }
+
+    .new {
+      font: 600 1rem "Space Grotesk", sans-serif;
+      background: var(--ink);
+      color: var(--bg);
+      border: none;
+      border-radius: 999px;
+      padding: 12px 28px;
+      cursor: pointer;
+    }
+    .new:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Tic Tac Toe</h1>
+    <p class="how">Two players, one screen. Player A is X, player B is O.<br>
+      Take turns clicking a square. Three in a row wins.</p>
+
+    <div class="status" id="status">Loading…</div>
+
+    <div class="board" id="board">
+      <!-- 9 cells are added by the script below -->
+    </div>
+
+    <div class="error" id="error" role="alert"></div>
+
+    <div class="scores">
+      <div class="score"><b id="score-A">0</b><span>Player A (X)</span></div>
+      <div class="score"><b id="score-Draw">0</b><span>Draws</span></div>
+      <div class="score"><b id="score-B">0</b><span>Player B (O)</span></div>
+    </div>
+
+    <button class="new" id="new-game">New round</button>
+  </main>
+
+  <script>
+    // The browser only draws the board. Every rule (whose turn, valid moves,
+    // who won) is decided by the Python backend in app.py.
+    let gameId = null;
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+
+    const cells = [];
+    for (let x = 0; x < 3; x++) {
+      for (let y = 0; y < 3; y++) {
+        const btn = document.createElement("button");
+        btn.className = "cell";
+        btn.setAttribute("aria-label", `Row ${x + 1}, column ${y + 1}`);
+        btn.addEventListener("click", () => play(x, y));
+        boardEl.appendChild(btn);
+        cells.push(btn);
+      }
+    }
+
+    async function api(path, body) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      return data;
+    }
+
+    function render(state, lastMove) {
+      gameId = state.game_id;
+      const over = state.result !== "No win yet";
+      const winSet = new Set((state.winning_cells || []).map(([r, c]) => r * 3 + c));
+
+      state.board.flat().forEach((sign, i) => {
+        const cell = cells[i];
+        cell.textContent = sign.trim();
+        cell.className = "cell" + (sign.trim() ? " " + sign : "") + (winSet.has(i) ? " win" : "");
+        if (lastMove === i) cell.classList.add("pop");
+        cell.disabled = over || sign.trim() !== "";
+      });
+
+      if (state.result === "Draw") {
+        statusEl.textContent = "It's a draw!";
+      } else if (over) {
+        const sign = state.result === "A" ? "X" : "O";
+        statusEl.innerHTML = `Player ${state.result} (<span class="${sign}">${sign}</span>) wins! 🎉`;
+      } else {
+        statusEl.innerHTML = `Player ${state.player}'s turn (<span class="${state.sign}">${state.sign}</span>)`;
+      }
+
+      for (const key of ["A", "B", "Draw"]) {
+        document.getElementById("score-" + key).textContent = state.scores[key];
+      }
+    }
+
+    async function newGame() {
+      errorEl.textContent = "";
+      try {
+        render(await api("/api/new", { game_id: gameId }));
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    async function play(x, y) {
+      errorEl.textContent = "";
+      try {
+        render(await api("/api/move", { game_id: gameId, x, y }), x * 3 + y);
+      } catch (e) {
+        errorEl.textContent = e.message;
+        if (e.message.startsWith("Game not found")) gameId = null;
+      }
+    }
+
+    document.getElementById("new-game").addEventListener("click", newGame);
+    newGame();
+  </script>
+</body>
+</html>

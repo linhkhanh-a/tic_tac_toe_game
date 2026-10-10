@@ -1,10 +1,10 @@
 """
-Ban choi tren terminal (code goc, da them xu ly edge cases).
+Terminal version (the original code, with edge cases handled).
 
-Chay: python tic_tac_toe_cli.py
+Run: python tic_tac_toe_cli.py
 """
 
-from game_logic import new_board, is_valid_move, write_player_sign, check_winning
+from game_logic import new_board, is_valid_move, write_player_sign, check_winning, SIGNS
 
 
 def print_board(board):
@@ -15,24 +15,24 @@ def print_board(board):
 
 
 def ask_int(prompt):
-    '''Hoi cho den khi nguoi choi nhap dung 1 so nguyen.'''
+    '''Keep asking until the player types a whole number.'''
     while True:
         raw = input(prompt).strip()
         try:
             return int(raw)
         except ValueError:
-            print(f"'{raw}' khong phai so nguyen, nhap lai nhe.")
+            print(f"'{raw}' is not a whole number, try again.")
 
 
 def play_turn(player, board):
-    sign = "X" if player == "A" else "O"
+    sign = SIGNS[player]
     while True:
-        x = ask_int(f"Den luot {player} ({sign}). Nhap toa do x (0-2): ")
-        y = ask_int(f"Den luot {player} ({sign}). Nhap toa do y (0-2): ")
+        x = ask_int(f"Player {player}'s turn ({sign}). Enter row x (0-2): ")
+        y = ask_int(f"Player {player}'s turn ({sign}). Enter column y (0-2): ")
         ok, reason = is_valid_move(board, x, y)
         if ok:
             break
-        print(reason, "Thu lai.")
+        print(reason, "Try again.")
 
     write_player_sign(player, board, x, y)
     print_board(board)
@@ -49,9 +49,9 @@ def main():
 
     result = check_winning(board)
     if result == "Draw":
-        print("Hoa roi!")
+        print("It's a draw!")
     else:
-        print(f"Nguoi choi {result} thang!")
+        print(f"Player {result} wins!")
     print("End")
 
 
@@ -59,4 +59,4 @@ if __name__ == "__main__":
     try:
         main()
     except (KeyboardInterrupt, EOFError):
-        print("\nDa thoat game.")
+        print("\nGame exited.")
