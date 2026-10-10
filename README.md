@@ -2,6 +2,8 @@
 
 A two-player Tic Tac Toe game with a Python (Flask) backend and a browser UI. There's also a terminal version.
 
+**▶ Play it live: https://tic-tac-toe-3mgs.onrender.com** (first load may take about a minute while the free server wakes up)
+
 **Heads up: I wrote the game logic myself, but the website UI (`templates/index.html`) was vibe coded with AI.** 😄
 
 ## How it works
