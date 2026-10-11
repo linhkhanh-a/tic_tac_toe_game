@@ -16,6 +16,7 @@
       --x: #e4572e;
       --o: #2667ff;
       --win: #ffd23f;
+      --ok: #2e9e5b;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -27,6 +28,7 @@
         --x: #ff7a52;
         --o: #6b98ff;
         --win: #7a6417;
+        --ok: #4cc77f;
       }
     }
     * { box-sizing: border-box; }
@@ -42,16 +44,85 @@
     }
     main { width: 100%; max-width: 380px; text-align: center; }
     h1 { font-size: 2.4rem; margin: 0 0 4px; letter-spacing: -0.03em; }
-    .how { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+    .how { color: var(--muted); margin: 0 0 24px; font-size: 0.95rem; }
+    [hidden] { display: none !important; }
 
+    /* ---------- buttons & inputs ---------- */
+    .btn {
+      font: 600 1rem "Space Grotesk", sans-serif;
+      border-radius: 999px;
+      padding: 12px 24px;
+      cursor: pointer;
+      border: 2px solid var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn.ghost { background: transparent; color: var(--ink); }
+    .btn.small { padding: 6px 14px; font-size: 0.85rem; }
+    .btn.wide { width: 100%; }
+
+    /* ---------- lobby ---------- */
+    .card {
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      text-align: left;
+    }
+    .card h2 { font-size: 1.05rem; margin: 0 0 4px; }
+    .card p { color: var(--muted); font-size: 0.88rem; margin: 0 0 12px; }
+    .join-row { display: flex; gap: 8px; }
+    .code-input {
+      flex: 1;
+      min-width: 0;
+      font: 700 1.3rem "Space Grotesk", monospace;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 8px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    .divider { color: var(--muted); font-size: 0.85rem; margin: 6px 0 14px; }
+
+    /* ---------- room bar ---------- */
+    .room-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 10px 8px 14px;
+      margin-bottom: 14px;
+    }
+    .room-code { font-size: 0.8rem; color: var(--muted); text-align: left; }
+    .room-code b {
+      display: block;
+      font-size: 1.4rem;
+      letter-spacing: 0.25em;
+      color: var(--ink);
+    }
+    .room-actions { display: flex; gap: 6px; }
+
+    /* ---------- game ---------- */
     .status {
       font-size: 1.2rem;
       font-weight: 600;
       min-height: 1.6em;
-      margin-bottom: 14px;
+      margin-bottom: 4px;
     }
     .status .X { color: var(--x); }
     .status .O { color: var(--o); }
+    .substatus { color: var(--muted); font-size: 0.88rem; min-height: 1.3em; margin-bottom: 12px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 4px; }
+    .dot.on { background: var(--ok); }
 
     .board {
       display: grid;
@@ -63,6 +134,7 @@
       overflow: hidden;
       aspect-ratio: 1;
     }
+    .board.waiting { opacity: 0.55; }
     .cell {
       border: none;
       background: var(--card);
@@ -102,49 +174,117 @@
     .score b { display: block; font-size: 1.4rem; }
     .score span { font-size: 0.8rem; color: var(--muted); }
 
-    .new {
-      font: 600 1rem "Space Grotesk", sans-serif;
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
       background: var(--ink);
       color: var(--bg);
-      border: none;
+      padding: 10px 18px;
       border-radius: 999px;
-      padding: 12px 28px;
-      cursor: pointer;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
     }
-    .new:hover { opacity: 0.85; }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
   <main>
     <h1>Tic Tac Toe</h1>
-    <p class="how">Two players, one screen. Player A is X, player B is O.<br>
-      Take turns clicking a square. Three in a row wins.</p>
 
-    <div class="status" id="status">Loading…</div>
+    <!-- ===== Lobby ===== -->
+    <section id="lobby">
+      <p class="how">Play a friend on another device with a room code,<br>or share one screen.</p>
 
-    <div class="board" id="board">
-      <!-- 9 cells are added by the script below -->
-    </div>
+      <div class="card">
+        <h2>Play online with a friend</h2>
+        <p>Create a room, then send your friend the code or link. You'll be X.</p>
+        <button class="btn wide" id="create-online">Create a room</button>
+      </div>
 
-    <div class="error" id="error" role="alert"></div>
+      <div class="card">
+        <h2>Join a friend's room</h2>
+        <p>Type the 4-letter code they sent you. You'll be O.</p>
+        <form class="join-row" id="join-form">
+          <input class="code-input" id="code-input" maxlength="4" autocomplete="off"
+                 placeholder="CODE" aria-label="Room code">
+          <button class="btn" type="submit">Join</button>
+        </form>
+      </div>
 
-    <div class="scores">
-      <div class="score"><b id="score-A">0</b><span>Player A (X)</span></div>
-      <div class="score"><b id="score-Draw">0</b><span>Draws</span></div>
-      <div class="score"><b id="score-B">0</b><span>Player B (O)</span></div>
-    </div>
+      <div class="divider">or</div>
+      <button class="btn ghost wide" id="create-local">Play on one screen</button>
+      <div class="error" id="lobby-error" role="alert"></div>
+    </section>
 
-    <button class="new" id="new-game">New round</button>
+    <!-- ===== Game ===== -->
+    <section id="game" hidden>
+      <div class="room-bar" id="room-bar">
+        <div class="room-code">Room code<b id="room-code">----</b></div>
+        <div class="room-actions">
+          <button class="btn small ghost" id="copy-link">Copy invite link</button>
+        </div>
+      </div>
+
+      <div class="status" id="status"></div>
+      <div class="substatus" id="substatus"></div>
+
+      <div class="board" id="board"></div>
+
+      <div class="error" id="error" role="alert"></div>
+
+      <div class="scores">
+        <div class="score"><b id="score-A">0</b><span id="label-A">Player A (X)</span></div>
+        <div class="score"><b id="score-Draw">0</b><span>Draws</span></div>
+        <div class="score"><b id="score-B">0</b><span id="label-B">Player B (O)</span></div>
+      </div>
+
+      <button class="btn" id="rematch">Rematch</button>
+      <button class="btn ghost" id="leave">Leave</button>
+    </section>
   </main>
+
+  <div class="toast" id="toast"></div>
 
   <script>
     // The browser only draws the board. Every rule (whose turn, valid moves,
-    // who won) is decided by the Python backend in app.py.
-    let gameId = null;
-    const boardEl = document.getElementById("board");
-    const statusEl = document.getElementById("status");
-    const errorEl = document.getElementById("error");
+    // who won, who is allowed to play) is decided by the Python backend in app.py.
+    const SIGN = { A: "X", B: "O" };
+    const $ = (id) => document.getElementById(id);
 
+    let room = null;       // latest state from the server
+    let code = null;
+    let token = null;      // secret that proves which seat this browser holds
+    let pollTimer = null;
+
+    // ---------- remember my seat across refreshes (best effort) ----------
+    function saveToken(c, t) {
+      try { localStorage.setItem("ttt-room-" + c, t); } catch (e) {}
+    }
+    function loadToken(c) {
+      try { return localStorage.getItem("ttt-room-" + c); } catch (e) { return null; }
+    }
+
+    // ---------- talking to the backend ----------
+    async function api(method, path, body) {
+      const res = await fetch(path, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data.error || "Something went wrong.");
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    }
+
+    // ---------- board ----------
     const cells = [];
     for (let x = 0; x < 3; x++) {
       for (let y = 0; y < 3; y++) {
@@ -152,76 +292,230 @@
         btn.className = "cell";
         btn.setAttribute("aria-label", `Row ${x + 1}, column ${y + 1}`);
         btn.addEventListener("click", () => play(x, y));
-        boardEl.appendChild(btn);
+        $("board").appendChild(btn);
         cells.push(btn);
       }
     }
 
-    async function api(path, body) {
-      const res = await fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      return data;
+    function signHTML(seat) {
+      return `<span class="${SIGN[seat]}">${SIGN[seat]}</span>`;
     }
 
-    function render(state, lastMove) {
-      gameId = state.game_id;
-      const over = state.result !== "No win yet";
-      const winSet = new Set((state.winning_cells || []).map(([r, c]) => r * 3 + c));
+    function myTurn(s) {
+      if (s.result !== "No win yet") return false;
+      if (s.you === "both") return true;
+      return s.you === s.turn && s.players.B.joined;
+    }
 
-      state.board.flat().forEach((sign, i) => {
+    // ---------- draw everything from the server state ----------
+    function render(s, lastMove) {
+      const prev = room;
+      room = s;
+      const over = s.result !== "No win yet";
+      const waitingForFriend = !s.local && !s.players.B.joined;
+      const canPlay = myTurn(s);
+      const winSet = new Set((s.winning_cells || []).map(([r, c]) => r * 3 + c));
+
+      // Pop animation for the newest mark, including the opponent's
+      s.board.flat().forEach((sign, i) => {
+        const mark = sign.trim();
         const cell = cells[i];
-        cell.textContent = sign.trim();
-        cell.className = "cell" + (sign.trim() ? " " + sign : "") + (winSet.has(i) ? " win" : "");
-        if (lastMove === i) cell.classList.add("pop");
-        cell.disabled = over || sign.trim() !== "";
+        const isNew = mark && prev && prev.board.flat()[i].trim() === "";
+        cell.textContent = mark;
+        cell.className = "cell" + (mark ? " " + mark : "") + (winSet.has(i) ? " win" : "");
+        if (isNew || lastMove === i) cell.classList.add("pop");
+        cell.disabled = !canPlay || mark !== "";
       });
+      $("board").classList.toggle("waiting", waitingForFriend);
 
-      if (state.result === "Draw") {
-        statusEl.textContent = "It's a draw!";
-      } else if (over) {
-        const sign = state.result === "A" ? "X" : "O";
-        statusEl.innerHTML = `Player ${state.result} (<span class="${sign}">${sign}</span>) wins! 🎉`;
+      // Room bar: only for online rooms
+      $("room-bar").hidden = s.local;
+      $("room-code").textContent = s.code;
+
+      // Labels
+      if (s.local) {
+        $("label-A").textContent = "Player A (X)";
+        $("label-B").textContent = "Player B (O)";
+      } else if (s.you === "A" || s.you === "B") {
+        const other = s.you === "A" ? "B" : "A";
+        $("label-" + s.you).textContent = `You (${SIGN[s.you]})`;
+        $("label-" + other).textContent = `Friend (${SIGN[other]})`;
       } else {
-        statusEl.innerHTML = `Player ${state.player}'s turn (<span class="${state.sign}">${state.sign}</span>)`;
+        $("label-A").textContent = "Player A (X)";
+        $("label-B").textContent = "Player B (O)";
+      }
+      for (const k of ["A", "B", "Draw"]) $("score-" + k).textContent = s.scores[k];
+
+      // Main status line
+      let status, sub = "";
+      if (waitingForFriend) {
+        status = "Waiting for a friend to join…";
+        sub = `Send them the code <b>${s.code}</b> or the invite link.`;
+      } else if (over) {
+        if (s.result === "Draw") status = "It's a draw!";
+        else if (s.local || s.you === "spectator") status = `Player ${s.result} (${signHTML(s.result)}) wins! 🎉`;
+        else status = s.result === s.you ? "You win! 🎉" : "Your friend wins this round.";
+        sub = s.you === "spectator" ? "" : "Press Rematch to play again. The other player goes first.";
+      } else if (s.local) {
+        status = `Player ${s.turn}'s turn (${signHTML(s.turn)})`;
+      } else if (s.you === "spectator") {
+        status = `Player ${s.turn}'s turn (${signHTML(s.turn)})`;
+        sub = "This room is full, so you're watching.";
+      } else if (canPlay) {
+        status = `Your turn (${signHTML(s.you)})`;
+      } else {
+        status = `Friend's turn (${signHTML(s.turn)})…`;
       }
 
-      for (const key of ["A", "B", "Draw"]) {
-        document.getElementById("score-" + key).textContent = state.scores[key];
+      // Connection hint for online games
+      if (!s.local && s.players.B.joined && (s.you === "A" || s.you === "B")) {
+        const other = s.you === "A" ? "B" : "A";
+        const online = s.players[other].online;
+        const hint = `<span class="dot ${online ? "on" : ""}"></span>Friend ${online ? "connected" : "seems disconnected"}`;
+        sub = sub ? sub + "<br>" + hint : hint;
+      }
+
+      $("status").innerHTML = status;
+      $("substatus").innerHTML = sub;
+
+      $("rematch").hidden = s.you === "spectator";
+      $("rematch").disabled = !s.local && !over;
+    }
+
+    // ---------- entering / leaving rooms ----------
+    function showGame() {
+      $("lobby").hidden = true;
+      $("game").hidden = false;
+      $("error").textContent = "";
+    }
+
+    function showLobby(message) {
+      stopPolling();
+      room = code = token = null;
+      $("game").hidden = true;
+      $("lobby").hidden = false;
+      $("lobby-error").textContent = message || "";
+      history.replaceState(null, "", location.pathname);
+    }
+
+    function enterRoom(s) {
+      code = s.code;
+      if (s.you === "spectator") token = null;
+      if (s.token) {
+        token = s.token;
+        saveToken(code, token);
+      }
+      if (!s.local) history.replaceState(null, "", "?room=" + code);
+      showGame();
+      render(s);
+      startPolling();
+    }
+
+    async function createRoom(local) {
+      $("lobby-error").textContent = "";
+      try {
+        enterRoom(await api("POST", "/api/rooms", { local }));
+      } catch (e) {
+        $("lobby-error").textContent = e.message;
       }
     }
 
-    async function newGame() {
-      errorEl.textContent = "";
+    async function joinRoom(c) {
+      c = (c || "").trim().toUpperCase();
+      $("lobby-error").textContent = "";
+      if (c.length !== 4) {
+        $("lobby-error").textContent = "Room codes are 4 characters.";
+        return;
+      }
       try {
-        render(await api("/api/new", { game_id: gameId }));
+        token = loadToken(c);  // rejoin my old seat if I refreshed
+        const s = await api("POST", `/api/rooms/${c}/join`, { token });
+        if (!s.token && s.you !== "spectator") s.token = token;
+        enterRoom(s);
       } catch (e) {
-        errorEl.textContent = e.message;
+        showLobby(e.message);
       }
     }
 
-    async function play(x, y) {
-      errorEl.textContent = "";
-      try {
-        render(await api("/api/move", { game_id: gameId, x, y }), x * 3 + y);
-      } catch (e) {
-        if (e.message.startsWith("Game not found")) {
-          // The server restarted (free hosting sleeps when idle), so start fresh
-          gameId = null;
-          await newGame();
-          errorEl.textContent = "The server restarted, so a new game was started.";
-        } else {
-          errorEl.textContent = e.message;
+    // ---------- live updates: ask the server for the board every second ----------
+    function startPolling() {
+      stopPolling();
+      const tick = async () => {
+        try {
+          const qs = token ? "?token=" + encodeURIComponent(token) : "";
+          render(await api("GET", `/api/rooms/${code}${qs}`));
+        } catch (e) {
+          if (e.status === 404) {
+            showLobby("This room has expired (the server may have restarted). Start a new one.");
+            return;
+          }
+          // network hiccup: just try again next tick
         }
+        // Slow down when the tab is in the background
+        pollTimer = setTimeout(tick, document.hidden ? 4000 : 1000);
+      };
+      pollTimer = setTimeout(tick, 1000);
+    }
+
+    function stopPolling() {
+      clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+
+    // ---------- actions ----------
+    async function play(x, y) {
+      $("error").textContent = "";
+      try {
+        render(await api("POST", `/api/rooms/${code}/move`, { token, x, y }), x * 3 + y);
+      } catch (e) {
+        if (e.status === 404) return showLobby("This room has expired. Start a new one.");
+        $("error").textContent = e.message;
       }
     }
 
-    document.getElementById("new-game").addEventListener("click", newGame);
-    newGame();
+    async function rematch() {
+      $("error").textContent = "";
+      try {
+        render(await api("POST", `/api/rooms/${code}/rematch`, { token }));
+      } catch (e) {
+        if (e.status === 404) return showLobby("This room has expired. Start a new one.");
+        $("error").textContent = e.message;
+      }
+    }
+
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 1800);
+    }
+
+    async function copyLink() {
+      const link = `${location.origin}${location.pathname}?room=${code}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        toast("Invite link copied!");
+      } catch (e) {
+        prompt("Copy this link and send it to your friend:", link);
+      }
+    }
+
+    $("create-online").addEventListener("click", () => createRoom(false));
+    $("create-local").addEventListener("click", () => createRoom(true));
+    $("join-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      joinRoom($("code-input").value);
+    });
+    $("code-input").addEventListener("input", (e) => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    });
+    $("rematch").addEventListener("click", rematch);
+    $("leave").addEventListener("click", () => showLobby());
+    $("copy-link").addEventListener("click", copyLink);
+
+    // Opened from an invite link like ?room=K7QF → join straight away
+    const linkCode = new URLSearchParams(location.search).get("room");
+    if (linkCode) joinRoom(linkCode);
   </script>
 </body>
 </html>
